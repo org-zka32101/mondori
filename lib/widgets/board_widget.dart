@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mondori/models/board.dart';
 import 'package:mondori/models/piece.dart';
 
-class BoardWidget extends StatelessWidget {
+class BoardWidget extends StatefulWidget {
   final Board board;
   final Piece? selectedPiece;
   final Function(Piece) onPieceSelected;
@@ -15,6 +15,34 @@ class BoardWidget extends StatelessWidget {
     required this.onPieceSelected,
     required this.onPositionTapped,
   }) : super(key: key);
+
+  @override
+  State<BoardWidget> createState() => _BoardWidgetState();
+}
+
+class _BoardWidgetState extends State<BoardWidget>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    )..repeat(reverse: true);
+
+    _pulseAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -94,51 +122,54 @@ class BoardWidget extends StatelessWidget {
 
                             final piece = board.getPieceAt(position);
                             final isSelected = selectedPiece?.position == position;
-                            final isMovable = selectedPiece != null &&
-                                selectedPiece!.getMovablePositions()
+                            final isMovable = widget.selectedPiece != null &&
+                                widget.selectedPiece!.getMovablePositions()
                                     .contains(position) &&
                                 piece == null;
-                            final isCaptureable = selectedPiece != null &&
-                                selectedPiece!.position
+                            final isCaptureable = widget.selectedPiece != null &&
+                                widget.selectedPiece!.position
                                     .getAdjacentPositions()
                                     .contains(position) &&
                                 piece != null &&
-                                piece.side != selectedPiece!.side;
-                            final isConvertible = selectedPiece != null &&
-                                selectedPiece!.position
+                                piece.side != widget.selectedPiece!.side;
+                            final isConvertible = widget.selectedPiece != null &&
+                                widget.selectedPiece!.position
                                     .getAdjacentPositions()
                                     .contains(position) &&
                                 piece != null &&
-                                piece.side == selectedPiece!.side &&
+                                piece.side == widget.selectedPiece!.side &&
                                 piece.seal == SealType.none;
 
                             return GestureDetector(
                               onTap: () {
                                 if (piece != null &&
                                     piece.seal != SealType.none) {
-                                  onPieceSelected(piece);
+                                  widget.onPieceSelected(piece);
                                 } else {
-                                  onPositionTapped(position);
+                                  widget.onPositionTapped(position);
                                 }
                               },
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: _getCellColor(
-                                    isSelected,
-                                    isMovable,
-                                    isCaptureable,
-                                    isConvertible,
+                              child: ScaleTransition(
+                                scale: isMovable ? _pulseAnimation : AlwaysStoppedAnimation(1.0),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: _getCellColor(
+                                      isSelected,
+                                      isMovable,
+                                      isCaptureable,
+                                      isConvertible,
+                                    ),
+                                    border: Border.all(
+                                      color: Colors.grey.shade300,
+                                    ),
                                   ),
-                                  border: Border.all(
-                                    color: Colors.grey.shade300,
-                                  ),
+                                  child: piece != null
+                                      ? _PieceWidget(
+                                    piece: piece,
+                                    isSelected: isSelected,
+                                  )
+                                      : null,
                                 ),
-                                child: piece != null
-                                    ? _PieceWidget(
-                                  piece: piece,
-                                  isSelected: isSelected,
-                                )
-                                    : null,
                               ),
                             );
                           },
@@ -162,7 +193,7 @@ class BoardWidget extends StatelessWidget {
     bool isConvertible,
   ) {
     if (isSelected) {
-      return Colors.blue.shade100;
+      return Colors.blue.shade200;
     } else if (isMovable) {
       return Colors.green.shade100;
     } else if (isCaptureable) {
@@ -174,7 +205,7 @@ class BoardWidget extends StatelessWidget {
   }
 }
 
-class _PieceWidget extends StatelessWidget {
+class _PieceWidget extends StatefulWidget {
   final Piece piece;
   final bool isSelected;
 
@@ -184,39 +215,89 @@ class _PieceWidget extends StatelessWidget {
   });
 
   @override
+  State<_PieceWidget> createState() => _PieceWidgetState();
+}
+
+class _PieceWidgetState extends State<_PieceWidget>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _scaleController;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _scaleController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.15).animate(
+      CurvedAnimation(parent: _scaleController, curve: Curves.elasticOut),
+    );
+
+    if (widget.isSelected) {
+      _scaleController.forward();
+    }
+  }
+
+  @override
+  void didUpdateWidget(_PieceWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isSelected && !oldWidget.isSelected) {
+      _scaleController.forward();
+    } else if (!widget.isSelected && oldWidget.isSelected) {
+      _scaleController.reverse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _scaleController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: piece.side == PlayerSide.A
-            ? Colors.deepPurple
-            : Colors.orange,
-        border: isSelected ? Border.all(
-          color: Colors.blue,
-          width: 3,
-        ) : null,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              _getSealLabel(piece.seal),
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-              ),
-              textAlign: TextAlign.center,
+    return ScaleTransition(
+      scale: _scaleAnimation,
+      child: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: widget.piece.side == PlayerSide.A
+              ? Colors.deepPurple
+              : Colors.orange,
+          border: widget.isSelected
+              ? Border.all(
+                  color: Colors.blue,
+                  width: 4,
+                )
+              : null,
+          boxShadow: [
+            BoxShadow(
+              color: (widget.piece.side == PlayerSide.A
+                      ? Colors.deepPurple
+                      : Colors.orange)
+                  .withOpacity(widget.isSelected ? 0.6 : 0.3),
+              blurRadius: widget.isSelected ? 12 : 4,
+              spreadRadius: widget.isSelected ? 2 : 0,
+              offset: const Offset(0, 2),
             ),
           ],
+        ),
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                _getSealLabel(widget.piece.seal),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );

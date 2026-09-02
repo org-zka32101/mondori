@@ -14,6 +14,8 @@ class _GameScreenState extends State<GameScreen> {
   late Board board;
   late PlayerSide currentPlayer;
   Piece? selectedPiece;
+  int moveCount = 0;
+  String? lastAction;
 
   @override
   void initState() {
@@ -25,6 +27,8 @@ class _GameScreenState extends State<GameScreen> {
     board = Board.initialPlacement1();
     currentPlayer = PlayerSide.A;
     selectedPiece = null;
+    moveCount = 0;
+    lastAction = null;
   }
 
   void _selectPiece(Piece piece) {
@@ -48,6 +52,8 @@ class _GameScreenState extends State<GameScreen> {
 
     setState(() {
       board = board.movePiece(selectedPiece!, newPosition);
+      moveCount++;
+      lastAction = 'プレイヤー${currentPlayer == PlayerSide.A ? 'A' : 'B'}が駒を移動しました';
       _switchTurn();
       selectedPiece = null;
     });
@@ -63,14 +69,18 @@ class _GameScreenState extends State<GameScreen> {
     final adjacent = selectedPiece!.position.getAdjacentPositions();
     if (!adjacent.contains(targetPosition)) return;
 
+    final isKingCapture = targetPiece.seal == SealType.king;
+
     setState(() {
       board = board.capturePiece(selectedPiece!, targetPiece);
+      moveCount++;
+      lastAction = 'プレイヤー${currentPlayer == PlayerSide.A ? 'A' : 'B'}が駒を奪取しました';
       _switchTurn();
       selectedPiece = null;
     });
 
     // 敵の王が奪取されたか確認
-    if (targetPiece.seal == SealType.king) {
+    if (isKingCapture) {
       _showGameOverDialog();
     }
   }
@@ -87,6 +97,8 @@ class _GameScreenState extends State<GameScreen> {
 
     setState(() {
       board = board.convertPiece(selectedPiece!, nonePiece);
+      moveCount++;
+      lastAction = 'プレイヤー${currentPlayer == PlayerSide.A ? 'A' : 'B'}が駒を教化しました';
       _switchTurn();
       selectedPiece = null;
     });
@@ -139,20 +151,71 @@ class _GameScreenState extends State<GameScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // 現在のプレイヤー表示
+              // 現在のプレイヤー表示（アニメーション付き）
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                transitionBuilder: (child, animation) =>
+                    FadeTransition(opacity: animation, child: child),
+                child: Card(
+                  key: ValueKey<PlayerSide>(currentPlayer),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      children: [
+                        Text(
+                          '現在のプレイヤー',
+                          style: Theme.of(context).textTheme.labelMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'プレイヤー${currentPlayer == PlayerSide.A ? 'A' : 'B'}',
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // ゲーム統計情報
               Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      Text(
-                        '現在のプレイヤー',
-                        style: Theme.of(context).textTheme.labelMedium,
+                      Column(
+                        children: [
+                          Text(
+                            'ターン数',
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                          Text(
+                            '$moveCount',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'プレイヤー${currentPlayer == PlayerSide.A ? 'A' : 'B'}',
-                        style: Theme.of(context).textTheme.headlineSmall,
+                      Container(
+                        width: 1,
+                        height: 40,
+                        color: Colors.grey.shade300,
+                      ),
+                      Expanded(
+                        child: Column(
+                          children: [
+                            Text(
+                              '最後のアクション',
+                              style: Theme.of(context).textTheme.labelSmall,
+                            ),
+                            Text(
+                              lastAction ?? 'ゲーム開始',
+                              style: Theme.of(context).textTheme.bodySmall,
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -185,10 +248,23 @@ class _GameScreenState extends State<GameScreen> {
               ),
               const SizedBox(height: 24),
 
-              // リセットボタン
-              FilledButton.tonal(
-                onPressed: () => setState(() => _initializeGame()),
-                child: const Text('ゲームをリセット'),
+              // アクションボタン
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (selectedPiece != null)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilledButton.tonal(
+                        onPressed: () => setState(() => selectedPiece = null),
+                        child: const Text('選択を解除'),
+                      ),
+                    ),
+                  FilledButton.tonal(
+                    onPressed: () => setState(() => _initializeGame()),
+                    child: const Text('ゲームをリセット'),
+                  ),
+                ],
               ),
             ],
           ),

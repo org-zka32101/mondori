@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:mondori/screens/game_screen.dart';
+import 'package:mondori/screens/game_mode_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -63,7 +63,7 @@ class HomeScreen extends StatelessWidget {
                 onPressed: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (context) => const GameScreen(),
+                      builder: (context) => const GameModeScreen(),
                     ),
                   );
                 },
