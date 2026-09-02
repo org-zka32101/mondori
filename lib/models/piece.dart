@@ -118,17 +118,23 @@ class Piece extends Equatable {
       case SealType.swift:
         // 縦横1～2マス
         final positions = <Position>[];
-        for (final col in ['a', 'b', 'c', 'd', 'e', 'f']) {
-          if (col != position.column) {
-            for (int dist = 1; dist <= 2; dist++) {
-              if (col.codeUnitAt(0) == position.column.codeUnitAt(0) + dist ||
-                  col.codeUnitAt(0) == position.column.codeUnitAt(0) - dist) {
-                positions.add(Position(column: col, row: position.row));
-              }
-            }
+        final colCode = position.column.codeUnitAt(0);
+
+        // 左右1～2マス
+        for (int delta in [-2, -1, 1, 2]) {
+          final newColCode = colCode + delta;
+          if (newColCode >= 'a'.codeUnitAt(0) && newColCode <= 'f'.codeUnitAt(0)) {
+            positions.add(
+              Position(
+                column: String.fromCharCode(newColCode),
+                row: position.row,
+              ),
+            );
           }
         }
-        for (int dist = 1; dist <= 2; dist++) {
+
+        // 上下1～2マス
+        for (int dist in [1, 2]) {
           if (position.row + dist <= 6) {
             positions.add(Position(column: position.column, row: position.row + dist));
           }
@@ -136,6 +142,7 @@ class Piece extends Equatable {
             positions.add(Position(column: position.column, row: position.row - dist));
           }
         }
+
         return positions;
 
       case SealType.counter:
